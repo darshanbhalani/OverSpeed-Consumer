@@ -27,14 +27,10 @@ namespace Kafka_Consumer
                 };
                 try
                 {
-
                     while (true)
                     {
-                        
                         try
                         {
-                            //Console.WriteLine("Consumer Started...");
-
                             var cr = consumer.Consume(cts.Token);
                             var msg = JsonConvert.DeserializeObject<List<DataModel>>(cr.Value.ToString());
                             dataList.AddRange(msg!);
@@ -44,7 +40,6 @@ namespace Kafka_Consumer
                         {
                             Console.WriteLine($"Error occured: {e.Error.Reason}");
                         }
-                        //Thread.Sleep(1000);
                     }
                 }
                 catch (OperationCanceledException)
@@ -57,31 +52,20 @@ namespace Kafka_Consumer
         private void incidentChecker()
         {
 
-            //Console.WriteLine("Incident Checker Started...");
-
             if ((DateTime.Now - lastExecutionTime).TotalSeconds >= thresholdTime)
             {
-                Console.Clear();
-                Console.WriteLine($"Threshold Time = {thresholdTime} seconds");
-                Console.WriteLine($"Threshold Speed = {thresholdSpeed} Km/h");
-                double averageSpeed = dataList.Average(d => d.VehicleSpeed);
+                
 
                 DateTime startTime = dataList.Min(d => DateTime.Parse(d.TimeStamp.ToString()));
                 DateTime endTime = dataList.Max(d => DateTime.Parse(d.TimeStamp.ToString()));
 
                 var groupedData = dataList.GroupBy(d => d.VehicleNumber);
 
-                //Console.WriteLine("-----------------------------------------------");
-                //foreach (var x in groupedData)
-                //{
-                //    Console.WriteLine($"{x.Key} --->");
-                //    foreach (var value in x)
-                //    {
-                //        Console.WriteLine($"  Value: {value.VehicleSpeed}");
-                //    }
-                //    Console.WriteLine();
-                //}
-                //Console.WriteLine("-----------------------------------------------");
+                Console.Clear();
+                Console.WriteLine($"\nThreshold Time = {thresholdTime} seconds");
+                Console.WriteLine($"Threshold Speed = {thresholdSpeed} Km/h");
+                double averageSpeed = dataList.Average(d => d.VehicleSpeed);
+                Console.WriteLine($"Total Vehicles = {groupedData.Count()}\n");
 
                 List<IncidentModel> incidents = new List<IncidentModel>();
                 foreach (var group in groupedData)
@@ -98,17 +82,22 @@ namespace Kafka_Consumer
 
                 allIncidents.Add(incidents);
 
-                Console.WriteLine("-----------------------------------------------");
                 foreach (var batchIncidents in allIncidents)
                 {
-                    Console.WriteLine("Batch:");
+                    Console.ForegroundColor = ConsoleColor.Blue;
+                    Console.WriteLine("-----------------------------------------------------------------------------------");
+                    Console.WriteLine($"| {"Vehicle Number",-15} | {"Average Speed",-15} | {"Start Time",-20} | {"End Time",-20} |");
+                    Console.WriteLine("-----------------------------------------------------------------------------------");
+                    Console.ResetColor();
+
                     foreach (var incident in batchIncidents)
                     {
                         if (incident.AverageSpeed > thresholdSpeed)
                         {
-                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.ForegroundColor = ConsoleColor.Black;
+                            Console.BackgroundColor = ConsoleColor.Red;
                         }
-                        else if(thresholdSpeed - incident.AverageSpeed <= 5  )
+                        else if (thresholdSpeed - incident.AverageSpeed <= 5)
                         {
                             Console.ForegroundColor = ConsoleColor.Yellow;
                         }
@@ -116,15 +105,18 @@ namespace Kafka_Consumer
                         {
                             Console.ForegroundColor = ConsoleColor.Green;
                         }
-                        Console.WriteLine($"Vehicle Number: {incident.VehicleNumber}, Average Speed: {incident.AverageSpeed}, Start Time: {incident.StartTime}, End Time: {incident.EndTime}");
+
+                        Console.WriteLine($"| {incident.VehicleNumber,-15} | {incident.AverageSpeed.ToString("F2"),-15} | {incident.StartTime,-20} | {incident.EndTime,-20} |");
                         Console.ResetColor();
-                        
                     }
+                    Console.ForegroundColor = ConsoleColor.Blue;
+                    Console.WriteLine("-----------------------------------------------------------------------------------");
+                    Console.ResetColor();
+                    Console.Write("Loading...");
                 }
-                Console.WriteLine("-----------------------------------------------");
+                
                 dataList.Clear();
                 allIncidents.Clear();
-                //Console.WriteLine("Data Clean");
                 lastExecutionTime = DateTime.Now;
             }
         }
