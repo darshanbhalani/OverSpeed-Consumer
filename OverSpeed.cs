@@ -3,8 +3,6 @@ using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using Npgsql;
 using NpgsqlTypes;
-using System.Data.Common;
-using System.Reflection;
 
 namespace Kafka_Consumer
 {
@@ -60,15 +58,12 @@ namespace Kafka_Consumer
             if ((DateTime.Now - lastExecutionTime).TotalSeconds >= thresholdTime)
             {
 
-                DateTime startTime = dataList.Min(d => DateTime.Parse(d.TimeStamp.ToString()));
-                DateTime endTime = dataList.Max(d => DateTime.Parse(d.TimeStamp.ToString()));
 
                 var groupedData = dataList.GroupBy(d => d.VehicleNumber);
 
                 Console.Clear();
                 Console.WriteLine($"\nThreshold Time = {thresholdTime} seconds");
                 Console.WriteLine($"Threshold Speed = {thresholdSpeed} Km/h");
-                double averageSpeed = dataList.Average(d => d.VehicleSpeed);
                 Console.WriteLine($"Total Vehicles = {groupedData.Count()}\n");
 
                 List<IncidentModel> incidents = new List<IncidentModel>();
@@ -78,8 +73,8 @@ namespace Kafka_Consumer
                     {
                         VehicleNumber = group.Key,
                         AverageSpeed = group.Average(d => d.VehicleSpeed),
-                        StartTime = startTime,
-                        EndTime = endTime
+                        StartTime = group.Min(d => DateTime.Parse(d.TimeStamp.ToString())),
+                        EndTime = group.Max(d => DateTime.Parse(d.TimeStamp.ToString()))
                     };
                     incidents.Add(incident);
                 }
