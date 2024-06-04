@@ -16,9 +16,19 @@ namespace Kafka_Consumer
         int thresholdSpeed = 55;
         private NpgsqlConnection connection;
 
-        internal async Task dataConsumer(ConsumerConfig _config, IConfiguration _configuration, NpgsqlConnection _connection)
+        internal async Task start(NpgsqlConnection _connection, ConsumerConfig _config, IConfiguration _configuration)
         {
+            Console.WriteLine("Overspeed Consumer Started...");
             connection = _connection;
+            Console.WriteLine("Configuration Checking...");
+            checkConfiguration();
+            Console.WriteLine("Configuration Fetched Successfully...");
+            Console.WriteLine("Data Consuming Started...");
+            await dataConsumer(_config, _configuration);
+        }
+        
+        private async Task dataConsumer(ConsumerConfig _config, IConfiguration _configuration)
+        {
             using (var consumer = new ConsumerBuilder<Ignore, string>(_config).Build())
             {
                 consumer.Subscribe(_configuration["BootstrapService:Topic"]);
@@ -57,15 +67,7 @@ namespace Kafka_Consumer
         {
             if ((DateTime.Now - lastExecutionTime).TotalSeconds >= thresholdTime)
             {
-
-
                 var groupedData = dataList.GroupBy(d => d.VehicleNumber);
-
-                Console.Clear();
-                Console.WriteLine($"\nThreshold Time = {thresholdTime} seconds");
-                Console.WriteLine($"Threshold Speed = {thresholdSpeed} Km/h");
-                Console.WriteLine($"Total Vehicles = {groupedData.Count()}\n");
-
                 List<IncidentModel> incidents = new List<IncidentModel>();
                 foreach (var group in groupedData)
                 {
@@ -78,46 +80,10 @@ namespace Kafka_Consumer
                     };
                     incidents.Add(incident);
                 }
-
-                allIncidents.Add(incidents);
-
-                foreach (var batchIncidents in allIncidents)
-                {
-                    Console.ForegroundColor = ConsoleColor.Blue;
-                    Console.WriteLine("-----------------------------------------------------------------------------------");
-                    Console.WriteLine($"| {"Vehicle Number",-15} | {"Average Speed",-15} | {"Start Time",-20} | {"End Time",-20} |");
-                    Console.WriteLine("-----------------------------------------------------------------------------------");
-                    Console.ResetColor();
-
-                    foreach (var incident in batchIncidents)
-                    {
-                        if (incident.AverageSpeed > thresholdSpeed)
-                        {
-                            Console.ForegroundColor = ConsoleColor.Black;
-                            Console.BackgroundColor = ConsoleColor.Red;
-                            overspeedIncidents.Add(incident);
-                        }
-                        else if (thresholdSpeed - incident.AverageSpeed <= 5)
-                        {
-                            Console.ForegroundColor = ConsoleColor.Yellow;
-                        }
-                        else
-                        {
-                            Console.ForegroundColor = ConsoleColor.Green;
-                        }
-
-                        Console.WriteLine($"| {incident.VehicleNumber,-15} | {incident.AverageSpeed.ToString("F2"),-15} | {incident.StartTime,-20} | {incident.EndTime,-20} |");
-                        Console.ResetColor();
-                    }
-
-                    await saveIncidents();
-                    Console.ForegroundColor = ConsoleColor.Blue;
-                    Console.WriteLine("-----------------------------------------------------------------------------------");
-                    Console.ResetColor();
-                    Console.Write("Loading...");
-                }
-
                 dataList.Clear();
+                allIncidents.Add(incidents);
+                displayData(groupedData.Count());
+                await saveIncidents();
                 allIncidents.Clear();
                 await checkConfiguration();
                 lastExecutionTime = DateTime.Now;
@@ -146,11 +112,11 @@ namespace Kafka_Consumer
             }
         }
 
-        internal async Task checkConfiguration()
+        private async Task checkConfiguration()
         {
             using (NpgsqlCommand cmd = new NpgsqlCommand($"select * from configurations where configurationid=1 and isdeleted=false;", connection))
             {
-                using(var reader=cmd.ExecuteReader())
+                using (var reader = cmd.ExecuteReader())
                 {
                     if (reader.Read())
                     {
@@ -158,7 +124,48 @@ namespace Kafka_Consumer
                         thresholdTime = reader.GetInt32(3);
                     }
                 }
-                
+
+            }
+        }
+
+        private async Task displayData(int count)
+        {
+            Console.Clear();
+            Console.WriteLine($"\nThreshold Time = {thresholdTime} seconds");
+            Console.WriteLine($"Threshold Speed = {thresholdSpeed} Km/h");
+            Console.WriteLine($"Total Vehicles = {count}\n");
+            foreach (var batchIncidents in allIncidents)
+            {
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine("-----------------------------------------------------------------------------------");
+                Console.WriteLine($"| {"Vehicle Number",-15} | {"Average Speed",-15} | {"Start Time",-20} | {"End Time",-20} |");
+                Console.WriteLine("-----------------------------------------------------------------------------------");
+                Console.ResetColor();
+
+                foreach (var incident in batchIncidents)
+                {
+                    if (incident.AverageSpeed > thresholdSpeed)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Black;
+                        Console.BackgroundColor = ConsoleColor.Red;
+                        overspeedIncidents.Add(incident);
+                    }
+                    else if (thresholdSpeed - incident.AverageSpeed <= 5)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                    }
+
+                    Console.WriteLine($"| {incident.VehicleNumber,-15} | {incident.AverageSpeed.ToString("F2"),-15} | {incident.StartTime,-20} | {incident.EndTime,-20} |");
+                    Console.ResetColor();
+                }
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine("-----------------------------------------------------------------------------------");
+                Console.ResetColor();
+                Console.Write("Loading...");
             }
         }
     }

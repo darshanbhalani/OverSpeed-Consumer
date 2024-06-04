@@ -25,9 +25,9 @@ class Program
             using (var connection = new NpgsqlConnection(connectionString))
             {
                 connection.Open();
+                Console.WriteLine("Database Connection Successfull...");
                 OverSpeed overSpeed = new OverSpeed();
-                overSpeed.checkConfiguration();
-                await overSpeed.dataConsumer(config, configuration, connection);
+                overSpeed.start(connection,config, configuration);
             }
            
             Console.ReadKey();
