@@ -80,7 +80,8 @@ namespace Kafka_Consumer
                     incidents.Add(incident);
                     if (incident.AverageSpeed > thresholdSpeed)
                     {
-                        incident.Description = $"Average Speed of {thresholdTime} seconds is grater than {thresholdSpeed}km/h";
+                        incident.ThresholdSpeed = thresholdSpeed;
+                        incident.Interval = thresholdTime;
                         overspeedIncidents.Add(incident);
                     }
                 }
@@ -96,20 +97,31 @@ namespace Kafka_Consumer
         {
             if (overspeedIncidents.Count > 0 && connection != null)
             {
-                string[] vehiclenumber = overspeedIncidents.Select(model => model.VehicleNumber).ToArray();
-                string[] description = overspeedIncidents.Select(model => model.Description).ToArray();
-                DateTime[] starttime = overspeedIncidents.Select(model => model.StartTime).ToArray();
-                DateTime[] endtime = overspeedIncidents.Select(model => model.EndTime).ToArray();
-                overspeedIncidents.Clear();
-
-                using (NpgsqlCommand cmd = new NpgsqlCommand($"select addoverspeedincidents(@in_vehiclenumber,@in_description,@in_thresholdspeed,@in_starttime,@in_endtime);", connection))
+                try
                 {
-                    cmd.Parameters.Add(new NpgsqlParameter("in_vehiclenumber", NpgsqlDbType.Array | NpgsqlDbType.Varchar) { Value = vehiclenumber.ToArray() });
-                    cmd.Parameters.Add(new NpgsqlParameter("in_thresholdspeed", thresholdSpeed));
-                    cmd.Parameters.Add(new NpgsqlParameter("in_description", NpgsqlDbType.Array | NpgsqlDbType.Text) { Value = description.ToArray() });
-                    cmd.Parameters.Add(new NpgsqlParameter("in_starttime", NpgsqlDbType.Array | NpgsqlDbType.Timestamp) { Value = starttime.ToArray() });
-                    cmd.Parameters.Add(new NpgsqlParameter("in_endtime", NpgsqlDbType.Array | NpgsqlDbType.Timestamp) { Value = endtime.ToArray() });
-                    cmd.ExecuteNonQuery();
+                    string[] vehiclenumber = overspeedIncidents.Select(model => model.VehicleNumber).ToArray();
+                    double[] avgSpeed = overspeedIncidents.Select(model => model.AverageSpeed).ToArray();
+                    DateTime[] starttime = overspeedIncidents.Select(model => model.StartTime).ToArray();
+                    DateTime[] endtime = overspeedIncidents.Select(model => model.EndTime).ToArray();
+                    overspeedIncidents.Clear();
+
+                    using (NpgsqlCommand cmd = new NpgsqlCommand($"select addoverspeedincidents(@in_vehiclenumber,@in_thresholdSpeed,@in_avgspeed,@in_interval,@in_starttime,@in_endtime);", connection))
+                    {
+                        cmd.Parameters.Add(new NpgsqlParameter("in_vehiclenumber", NpgsqlDbType.Array | NpgsqlDbType.Varchar) { Value = vehiclenumber.ToArray() });
+                        cmd.Parameters.Add(new NpgsqlParameter("in_thresholdspeed", thresholdSpeed));
+                        cmd.Parameters.Add(new NpgsqlParameter("in_avgspeed", NpgsqlDbType.Array | NpgsqlDbType.Double) { Value = avgSpeed.ToArray() });
+                        cmd.Parameters.Add(new NpgsqlParameter("in_interval", thresholdTime));
+                        cmd.Parameters.Add(new NpgsqlParameter("in_starttime", NpgsqlDbType.Array | NpgsqlDbType.Timestamp) { Value = starttime.ToArray() });
+                        cmd.Parameters.Add(new NpgsqlParameter("in_endtime", NpgsqlDbType.Array | NpgsqlDbType.Timestamp) { Value = endtime.ToArray() });
+                        cmd.ExecuteNonQuery();
+                    }
+                }catch(NpgsqlException e)
+                {
+                    await Console.Out.WriteLineAsync("Database Error : "+e.Message);
+                }
+                catch(Exception ex)
+                {
+                    await Console.Out.WriteLineAsync("Error : " + ex.Message);
                 }
             }
         }
