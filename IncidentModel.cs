@@ -4,6 +4,8 @@
     {
         public string VehicleNumber { get; set; }
         public double AverageSpeed { get; set; }
+        public string VehicleAuthority { get; set; }
+        public string VehicleCity { get; set; }
         public int ThresholdSpeed { get; set; }
         public int Interval { get; set; }
         public DateTime StartTime { get; set; }
